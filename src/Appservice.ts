@@ -6,6 +6,7 @@ import {
   RustSdkAppserviceCryptoStorageProvider,
 } from "matrix-bot-sdk";
 import { BridgeConfig } from "./config/Config";
+import { bootstrapCrossSigningOnReady } from "./CrossSigning";
 import Metrics from "./Metrics";
 import { MemoryStorageProvider } from "./stores/MemoryStorageProvider";
 import { RedisStorageProvider } from "./stores/RedisStorageProvider";
@@ -46,6 +47,10 @@ export function getAppservice(
     },
     cryptoStorage: cryptoStorage,
   });
+
+  if (cryptoStorage) {
+    bootstrapCrossSigningOnReady(appservice);
+  }
 
   Metrics.registerMatrixSdkMetrics(appservice);
 
