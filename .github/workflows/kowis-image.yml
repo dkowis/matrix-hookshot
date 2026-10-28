@@ -1,0 +1,66 @@
+name: "Kowis image"
+
+on:
+  push:
+    tags: ["*-kowis.*"]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Log in to the GitHub Container registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          tags: |
+            type=ref,event=tag
+            type=sha
+          images: |
+            ghcr.io/${{ github.repository_owner }}/matrix-hookshot
+
+      - name: Build Docker image for smoke test
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          push: false
+          load: true
+          tags: matrix-hookshot:smoke-test
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Smoke test Docker image
+        run: |
+          printf '{}\n' > /tmp/hookshot-config.yml
+          output=$(timeout 10 docker run --rm \
+            -v /tmp/hookshot-config.yml:/data/config.yml:ro \
+            matrix-hookshot:smoke-test 2>&1 || true)
+          echo "$output"
+          echo "$output" | grep -q "Loading config from"
+
+      - name: Fail if CodeMirror is duplicated in the lockfile
+        run: |
+          test "$(grep -cE "^  '@codemirror/state@" pnpm-lock.yaml)" -eq 2
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
