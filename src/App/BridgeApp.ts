@@ -28,7 +28,10 @@ export async function start(
   });
   LogService.setLogger(Logger.botSdkLogger);
 
-  const { appservice, storage } = getAppservice(config, registration);
+  const { appservice, storage, crossSigning } = getAppservice(
+    config,
+    registration,
+  );
 
   if (!config.queue) {
     const matrixSender = new MatrixSender(config, appservice);
@@ -59,6 +62,7 @@ export async function start(
     appservice.botIntent,
     config,
   );
+  crossSigning?.start(tokenStore);
   const bridgeApp = new Bridge(
     config,
     tokenStore,
